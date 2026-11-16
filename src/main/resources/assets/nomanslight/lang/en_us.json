@@ -1,0 +1,7 @@
+{
+  "nomanslight.configuration.title": "No Man's Light Configs",
+  "nomanslight.configuration.section.nomanslight.common.toml": "No Man's Light Configs",
+  "nomanslight.configuration.section.nomanslight.common.toml.title": "No Man's Light Configs",
+  "nomanslight.configuration.targetSconces": "Target Sconces",
+  "nomanslight.configuration.targetSconces.tooltip": "If disabled, mobs will ignore No Man's Land sconces and only target torches."
+}
