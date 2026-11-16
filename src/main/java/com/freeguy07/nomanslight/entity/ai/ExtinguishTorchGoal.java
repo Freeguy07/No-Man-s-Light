@@ -1,5 +1,6 @@
 package com.freeguy07.nomanslight.entity.ai;
 
+import com.freeguy07.nomanslight.entity.MobWhitelist;
 import com.freeguy07.nomanslight.torch.TorchExtinguishing;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -24,11 +25,11 @@ import java.util.EnumSet;
 public class ExtinguishTorchGoal extends Goal {
     private static final int SEARCH_RADIUS = 12;
     private static final int VERTICAL_SEARCH_RANGE = 4;
-    private static final double MANUAL_REACH_HORIZONTAL_SQ = 1.35 * 1.35;
     private static final int MANUAL_SWING_TICK = 3;
     private static final int MANUAL_EXTINGUISH_DELAY = 5;
     private static final int MAX_TRY_TICKS = 240;
     private static final int MAX_STUCK_TICKS = 30;
+    private static final int FAILED_TARGET_COOLDOWN = 400;
 
     private final PathfinderMob mob;
     private final double speedModifier;
@@ -37,11 +38,14 @@ public class ExtinguishTorchGoal extends Goal {
     private BlockPos targetPos;
     @Nullable
     private BlockPos moveTargetPos;
+    @Nullable
+    private BlockPos lastFailedPos;
 
     private int nextStartTick;
     private int tryTicks;
     private int stuckTicks;
     private int actionTicks;
+    private int ignoreFailedUntilTick;
 
     public ExtinguishTorchGoal(PathfinderMob mob, double speedModifier) {
         this.mob = mob;
@@ -93,6 +97,10 @@ public class ExtinguishTorchGoal extends Goal {
 
     @Override
     public void stop() {
+        if (this.targetPos != null && (this.stuckTicks >= MAX_STUCK_TICKS || this.tryTicks >= MAX_TRY_TICKS)) {
+            this.lastFailedPos = this.targetPos;
+            this.ignoreFailedUntilTick = this.mob.tickCount + FAILED_TARGET_COOLDOWN;
+        }
         this.targetPos = null;
         this.moveTargetPos = null;
         this.actionTicks = 0;
@@ -155,6 +163,9 @@ public class ExtinguishTorchGoal extends Goal {
     }
 
     private boolean canRunCommonChecks() {
+        if (!MobWhitelist.isAllowed(this.mob.getType())) {
+            return false;
+        }
         if (this.mob.getTarget() != null) {
             return false;
         }
@@ -181,7 +192,11 @@ public class ExtinguishTorchGoal extends Goal {
         double dx = (pos.getX() + 0.5) - this.mob.getX();
         double dz = (pos.getZ() + 0.5) - this.mob.getZ();
         double dy = pos.getY() - this.mob.getY();
-        return (dx * dx + dz * dz) <= MANUAL_REACH_HORIZONTAL_SQ && dy >= -1.2 && dy <= 2.2;
+        double horizontalReach = 1.05 + this.mob.getBbWidth() * 0.5;
+        double maxVerticalReach = Math.max(2.2, this.mob.getBbHeight() + 0.4);
+        return (dx * dx + dz * dz) <= horizontalReach * horizontalReach
+                && dy >= -1.2
+                && dy <= maxVerticalReach;
     }
 
     private boolean hasLineOfSightToBlock(BlockPos pos) {
@@ -206,6 +221,8 @@ public class ExtinguishTorchGoal extends Goal {
         BlockPos bestPos = null;
         double bestDistSq = Double.MAX_VALUE;
 
+        boolean ignoreFailed = this.lastFailedPos != null && this.mob.tickCount < this.ignoreFailedUntilTick;
+
         for (int dy = -VERTICAL_SEARCH_RANGE; dy <= VERTICAL_SEARCH_RANGE; dy++) {
             int y = origin.getY() + dy;
             if (level.isOutsideBuildHeight(y)) {
@@ -214,6 +231,9 @@ public class ExtinguishTorchGoal extends Goal {
             for (int dx = -SEARCH_RADIUS; dx <= SEARCH_RADIUS; dx++) {
                 for (int dz = -SEARCH_RADIUS; dz <= SEARCH_RADIUS; dz++) {
                     cursor.set(origin.getX() + dx, y, origin.getZ() + dz);
+                    if (ignoreFailed && cursor.equals(this.lastFailedPos)) {
+                        continue;
+                    }
                     double distSq = cursor.distSqr(origin);
                     if (distSq >= bestDistSq || !level.isLoaded(cursor)) {
                         continue;
