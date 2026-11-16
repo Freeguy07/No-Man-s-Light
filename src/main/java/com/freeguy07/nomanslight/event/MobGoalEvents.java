@@ -23,20 +23,20 @@ public class MobGoalEvents {
 
         Entity entity = event.getEntity();
         if (entity instanceof Witch witch) {
-            addGoalIfAbsent(witch, 2, true);
+            addGoalIfAbsent(witch, 1);
         } else if (entity instanceof Zombie zombie) {
-            addGoalIfAbsent(zombie, 5, false);
+            addGoalIfAbsent(zombie, 5);
         } else if (entity instanceof AbstractSkeleton skeleton && !(skeleton instanceof WitherSkeleton)) {
-            addGoalIfAbsent(skeleton, 4, false);
+            addGoalIfAbsent(skeleton, 4);
         }
     }
 
-    private static void addGoalIfAbsent(PathfinderMob mob, int priority, boolean allowPotionThrow) {
+    private static void addGoalIfAbsent(PathfinderMob mob, int priority) {
         for (WrappedGoal wrapped : mob.goalSelector.getAvailableGoals()) {
             if (wrapped.getGoal() instanceof ExtinguishTorchGoal) {
                 return;
             }
         }
-        mob.goalSelector.addGoal(priority, new ExtinguishTorchGoal(mob, 1.0, allowPotionThrow));
+        mob.goalSelector.addGoal(priority, new ExtinguishTorchGoal(mob, 1.0));
     }
 }

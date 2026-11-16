@@ -17,36 +17,34 @@ import net.minecraft.world.level.gameevent.GameEvent;
 import net.neoforged.neoforge.event.EventHooks;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 
 public final class TorchExtinguishing {
-    private static volatile Map<Block, ExtinguishableBlockPairing> litBlockIndex;
-
     private TorchExtinguishing() {
     }
 
-    private static Map<Block, ExtinguishableBlockPairing> getLitBlockIndex() {
-        Map<Block, ExtinguishableBlockPairing> index = litBlockIndex;
-        if (index == null) {
-            Map<Block, ExtinguishableBlockPairing> built = new IdentityHashMap<>();
+    private static final class Index {
+        private static final Map<Block, ExtinguishableBlockPairing> BY_LIT_BLOCK = build();
+
+        private static Map<Block, ExtinguishableBlockPairing> build() {
+            Map<Block, ExtinguishableBlockPairing> map = new IdentityHashMap<>();
             for (ExtinguishableBlockPairing pairing : NMLRegistries.EXTINGUISHABLE_BLOCKS) {
-                built.put(pairing.litBlock(), pairing);
+                map.put(pairing.litBlock(), pairing);
             }
-            litBlockIndex = built;
-            index = built;
+            return Collections.unmodifiableMap(map);
         }
-        return index;
     }
 
-    public static boolean isSconce(Block block) {
+    private static boolean isSconce(Block block) {
         return block instanceof SconceTorchBlock || block instanceof SconceWallTorchBlock;
     }
 
     @Nullable
-    public static ExtinguishableBlockPairing getTargetPairing(BlockState state) {
+    private static ExtinguishableBlockPairing getTargetPairing(BlockState state) {
         Block block = state.getBlock();
-        ExtinguishableBlockPairing pairing = getLitBlockIndex().get(block);
+        ExtinguishableBlockPairing pairing = Index.BY_LIT_BLOCK.get(block);
         if (pairing == null) {
             return null;
         }
